@@ -50,6 +50,22 @@ Point your agent at the gateway instead of the tool server:
 }
 ```
 
+## tsp-mcp - verification tools for AI assistants
+
+The same repo ships `tsp-mcp`, an MCP server exposing the TSP verifier as
+tools - so any MCP-speaking assistant (Claude, etc.) can verify evidence
+natively in conversation: `verify_envelope`, `validate_manifest`,
+`verify_evidence_log` (per-envelope verdicts + ledger-chain continuity), and
+`canonical_hash`. Verification only: the server holds no keys and signs
+nothing. Add it to your assistant's MCP config:
+
+```json
+{ "command": "node", "args": ["src/mcp-server.js"] }
+```
+
+Paste an envelope, ask "is this genuine?" - the verdict comes from the same
+spec-pinned core, not from the model's opinion.
+
 ## Status
 
 MVP (v0.1.0). Interactive approvals, real key binding to trust manifests, and
