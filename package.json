@@ -1,0 +1,10 @@
+{
+  "name": "tsp-gateway",
+  "version": "0.1.0",
+  "description": "TSP Gateway — an MCP proxy that mediates agent tool calls under a fail-closed policy and emits signed TSP v3.0 trust envelopes as evidence exhaust.",
+  "type": "module",
+  "bin": { "tsp-gateway": "src/main.js" },
+  "scripts": { "test": "node --test test/*.test.mjs", "demo": "node demo/run-demo.mjs" },
+  "license": "Apache-2.0",
+  "engines": { "node": ">=20" }
+}

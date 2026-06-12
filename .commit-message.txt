@@ -1,0 +1,15 @@
+feat: TSP Gateway MVP — policy-mediated MCP proxy with verifiable evidence exhaust
+
+Stdio MCP proxy (zero runtime dependencies, Node >=20): mediates tools/call
+under a fail-closed policy (allow/block/require-approval; unknown tools
+blocked by default; blocked tools filtered out of tools/list), and emits a
+signed, ledger-chained TSP v3.0 trust envelope for every decision. Ephemeral
+session keys in dev (public key exported beside the JSONL evidence log);
+production key binding is deploy-time config — evidence is exhaust, not
+ceremony.
+
+Verifier core vendored verbatim from the spec-pinned reference implementation
+at Trust-Standard-Protocol@a68a3b0 (src/core/PROVENANCE.md). Tests enforce
+that every emitted envelope passes verifyLocal, that recorded decisions are
+tamper-evident per the ADR-0002 granular profile, and an e2e drives the real
+stdio path: mediation, list filtering, chained + verified evidence log.
