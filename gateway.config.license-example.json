@@ -1,0 +1,15 @@
+{
+  "upstream": { "command": "node", "args": ["demo/toy-server.mjs"] },
+  "evidenceDir": "./evidence",
+  "policy": {
+    "allow": ["echo", "read_note"],
+    "block": ["delete_everything"],
+    "requireApproval": ["send_email"],
+    "default": "block"
+  },
+  "license": {
+    "origin": "https://customer.example",
+    "bundlePath": "./license.json",
+    "gatedModules": { "read_note": "gateway-pro" }
+  }
+}

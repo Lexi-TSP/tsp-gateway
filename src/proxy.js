@@ -6,7 +6,12 @@
  *   allow             forward; envelope binds params + result hashes
  *   block             fail-closed MCP error result; envelope records denial
  *   approval_required MVP: behaves as block with its own reason code
- * tools/list responses are filtered so blocked tools are never advertised.
+ * Licensing:  a gated commercial tool (ADR-0010) additionally requires a valid
+ *   license; an unlicensed/expired/wrong-origin license fails closed with
+ *   reason `unlicensed_platform` (the stdio analog of HTTP 402). Licensing is
+ *   opt-in: with no `license` config no tool is gated and behavior is unchanged.
+ * tools/list responses are filtered so blocked tools — and gated-but-unlicensed
+ * tools — are never advertised.
  * Everything else passes through with id integrity preserved.
  *
  * Fail-closed: envelope build/sign failure fails the call; upstream death
@@ -21,19 +26,26 @@ import { createLineReader, writeMessage } from './jsonrpc.js';
 import { createEnvelopeChain } from './envelope.js';
 import { generateSessionKeys } from './core/sign.js';
 import { sha256Hex } from './core/hash.js';
+import { NO_LICENSE_GATE } from './license-gate.js';
 
 export const GATEWAY_VERSION = '0.1.0';
 
-const blockedResult = (id, toolName, reason) => ({
-  jsonrpc: '2.0',
-  id,
-  result: {
-    content: [{ type: 'text', text: `tsp-gateway: call to "${toolName}" ${reason === 'approval_required' ? 'requires approval' : 'blocked by policy'} (fail-closed)` }],
-    isError: true,
-  },
-});
+const blockedResult = (id, toolName, reason) => {
+  const text =
+    reason === 'approval_required' ? 'requires approval'
+    : reason === 'unlicensed_platform' ? 'is unlicensed (402 unlicensed_platform)'
+    : 'blocked by policy';
+  return {
+    jsonrpc: '2.0',
+    id,
+    result: {
+      content: [{ type: 'text', text: `tsp-gateway: call to "${toolName}" ${text} (fail-closed)` }],
+      isError: true,
+    },
+  };
+};
 
-export const startGateway = async ({ config, policy, stdin = process.stdin, stdout = process.stdout, stderr = process.stderr, evidenceDir }) => {
+export const startGateway = async ({ config, policy, licenseGate = NO_LICENSE_GATE, stdin = process.stdin, stdout = process.stdout, stderr = process.stderr, evidenceDir }) => {
   const sessionId = randomUUID().slice(0, 8);
   const keys = await generateSessionKeys();
   const dir = evidenceDir ?? config.evidenceDir ?? './evidence';
@@ -66,6 +78,15 @@ export const startGateway = async ({ config, policy, stdin = process.stdin, stdo
           writeMessage(stdout, blockedResult(msg.id, String(toolName), decision));
           return;
         }
+        // ADR-0010 402 path: a gated commercial tool requires a valid license.
+        if (licenseGate.isGated(toolName)) {
+          const lic = await licenseGate.check(toolName);
+          if (!lic.ok) {
+            await emit({ kind: 'tool_call', tool: String(toolName), decision: 'block', reason: lic.reason, licenseReason: lic.licenseReason, paramsHash: hashOf(msg.params) });
+            writeMessage(stdout, blockedResult(msg.id, String(toolName), 'unlicensed_platform'));
+            return;
+          }
+        }
         pendingToolCalls.set(msg.id, { tool: toolName, paramsHash: hashOf(msg.params) });
         writeMessage(upstream.stdin, msg);
         return;
@@ -92,7 +113,16 @@ export const startGateway = async ({ config, policy, stdin = process.stdin, stdo
       if (msg.id !== undefined && pendingToolLists.has(msg.id)) {
         pendingToolLists.delete(msg.id);
         if (Array.isArray(msg.result?.tools)) {
-          msg.result.tools = msg.result.tools.filter((t) => policy.decide(t?.name) !== 'block');
+          const unlicensed = new Set();
+          if (licenseGate.enabled) {
+            for (const t of msg.result.tools) {
+              if (licenseGate.isGated(t?.name)) {
+                const lic = await licenseGate.check(t.name);
+                if (!lic.ok) unlicensed.add(t.name);
+              }
+            }
+          }
+          msg.result.tools = msg.result.tools.filter((t) => policy.decide(t?.name) !== 'block' && !unlicensed.has(t?.name));
         }
         writeMessage(stdout, msg);
         return;

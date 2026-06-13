@@ -66,6 +66,35 @@ nothing. Add it to your assistant's MCP config:
 Paste an envelope, ask "is this genuine?" - the verdict comes from the same
 spec-pinned core, not from the model's opinion.
 
+## Licensing — `402 unlicensed_platform` (ADR-0010)
+
+Licensing is **opt-in and off by default**: with no `license` block in the
+config, no tool is gated and the gateway behaves exactly as before.
+
+When a `license` block is present, listed *commercial* tools are gated. A gated
+tool requires a valid TSP License Artifact v1 (`tsp.license.v1`) verified
+**fully offline** by `verify_license()` (license -> issuer -> the gateway's
+pinned license-root). If the license is missing, expired (past `validUntil`
+with no signed `graceUntil`), bound to a different origin, or does not entitle
+the required module, the call **fails closed** with `unlicensed_platform` (the
+stdio analog of HTTP `402`) and the gated tool is hidden from `tools/list`.
+
+```jsonc
+// gateway.config.license-example.json
+"license": {
+  "origin": "https://customer.example",     // this deployment's trust-manifest origin
+  "bundlePath": "./license.json",            // or env TSP_LICENSE_BUNDLE
+  "gatedModules": { "read_note": "gateway-pro" }  // toolName -> required module (default-deny)
+}
+```
+
+The pinned license-root set ships in the distribution (`src/core/license-roots.js`,
+populated by the offline license-root ceremony, operator-run). `license.devTrustedRootKeys`
+is a dev/test-only escape hatch, warned loudly at startup. Verification is free
+and open; **issuance/renewal is the commercial layer** — see ADR-0010. The
+license is a *sibling* artifact: the TrustEnvelope schema, `verify_local()`, and
+the v3.0 conformance gate are untouched.
+
 ## Status
 
 MVP (v0.1.0). Interactive approvals, real key binding to trust manifests, and
