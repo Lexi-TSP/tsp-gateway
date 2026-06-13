@@ -32,11 +32,12 @@ test('no license config -> licensing disabled, nothing gated, behavior unchanged
   assert.equal(g.isGated('read_note'), false);
 });
 
-test('licensing enabled but empty pinned/dev root set -> refuses to start (fail-closed)', () => {
-  assert.throws(
-    () => createLicenseGate({ license: { origin: ORIGIN, gatedModules: {} } }, { stderr: sink }),
-    /pinned license-root set is empty/,
-  );
+test('a distribution-pinned license-root enables licensing without dev keys', () => {
+  // PINNED_LICENSE_ROOTS now carries the real ceremony root, so licensing
+  // enables with no devTrustedRootKeys override (it would only fail closed if
+  // the pin were empty AND no dev keys were supplied).
+  const g = createLicenseGate({ license: { origin: ORIGIN, gatedModules: {} } }, { stderr: sink });
+  assert.equal(g.enabled, true);
 });
 
 test('malformed license config -> throws (unknown key / missing origin / bad gatedModules)', () => {

@@ -4,15 +4,16 @@
  * core: it wires the free, open core verifier to the commercial gating policy.
  *
  * Fail-closed by construction:
- *  - no `license` config            -> NO_LICENSE_GATE (no tool is gated; today's behavior, backwards compatible)
+ *  - no `license` config            -> NO_LICENSE_GATE (no tool is gated; backwards compatible)
  *  - `license` config present but   -> constructor THROWS, gateway refuses to start
  *    misconfigured / no pinned root
  *  - a gated tool with no/invalid   -> check() returns ok:false, reason 'unlicensed_platform'
  *    license at call time
  *
  * The pinned license-root set is the gateway DISTRIBUTION pin (core/license-roots.js).
- * `license.devTrustedRootKeys` is a dev/test-only escape hatch, warned loudly,
- * exactly like Policy's `default: "allow"`.
+ * `license.devTrustedRootKeys`, when set, REPLACES that pinned set with dev/test
+ * pins (dev-only escape hatch, warned loudly) so a test root never collides with
+ * a real distribution-pinned root that happens to share a rootKeyId.
  */
 import { readFileSync } from 'node:fs';
 import { verifyLicense } from './core/verify-license.js';
@@ -47,8 +48,8 @@ export const createLicenseGate = (config, { stderr = process.stderr, now = () =>
 
   let trustedRootKeys = [...PINNED_LICENSE_ROOTS];
   if (Array.isArray(lc.devTrustedRootKeys) && lc.devTrustedRootKeys.length > 0) {
-    stderr.write('tsp-gateway: WARNING — license.devTrustedRootKeys is set; trusting dev/test license-root pins NOT in the distribution (dev only)\n');
-    trustedRootKeys = [...trustedRootKeys, ...lc.devTrustedRootKeys];
+    stderr.write('tsp-gateway: WARNING — license.devTrustedRootKeys is set; REPLACING the distribution-pinned license-root set with dev/test pins (dev only)\n');
+    trustedRootKeys = [...lc.devTrustedRootKeys];
   }
   if (trustedRootKeys.length === 0) {
     throw new Error('tsp-gateway: licensing enabled but the pinned license-root set is empty (run the license-root ceremony, or set license.devTrustedRootKeys for dev) — refusing to start (fail-closed)');
@@ -71,7 +72,6 @@ export const createLicenseGate = (config, { stderr = process.stderr, now = () =>
     isGated: (toolName) => Object.hasOwn(gatedModules, toolName),
     gatedTools: () => Object.keys(gatedModules),
 
-    /** Returns { ok, reason } — ok:false collapses any granular failure to 'unlicensed_platform'. */
     async check(toolName) {
       const moduleId = gatedModules[toolName];
       if (moduleId === undefined) return { ok: true, reason: 'ungated' };
@@ -83,7 +83,6 @@ export const createLicenseGate = (config, { stderr = process.stderr, now = () =>
       return { ok: false, reason: 'unlicensed_platform', detail: `${r.reason}: ${r.detail}`, licenseReason: r.reason };
     },
 
-    /** One-shot health line for startup logging (chain/window/origin only; no module gate). */
     async startupStatus() {
       const gated = Object.keys(gatedModules);
       if (gated.length === 0) return 'licensing enabled; no tools gated';

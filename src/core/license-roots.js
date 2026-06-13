@@ -10,11 +10,14 @@
  * PUBLIC keys only — never any private material (same rule as everywhere in TSP).
  * Each entry: { rootKeyId: string, publicKey: <Ed25519 public JWK> }.
  *
- * This list is EMPTY until the first license-root ceremony (operator-run,
- * offline). With an empty pin and no dev override, enabling licensing fails
- * closed at startup — you cannot verify a chain to a root you do not trust.
+ * Populated from the offline license-root ceremony (operator-run). With an
+ * empty pin and no dev override, enabling licensing fails closed at startup —
+ * you cannot verify a chain to a root you do not trust.
  */
 export const PINNED_LICENSE_ROOTS = [
-  // Populated from the offline ceremony, e.g.:
-  // { rootKeyId: 'tsp-license-root-2026', publicKey: { kty: 'OKP', crv: 'Ed25519', x: '<base64url>' } },
+  // Pinned from the offline license-root ceremony (2026-06-13). PUBLIC key only.
+  {
+    rootKeyId: 'tsp-license-root-2026',
+    publicKey: { kty: 'OKP', crv: 'Ed25519', x: '_NYL4s-z7wifu0SYAJX797G4JVk10p3rllmQ-qwYMAg' },
+  },
 ];
