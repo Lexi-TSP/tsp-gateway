@@ -1,0 +1,38 @@
+name: CI
+
+# Build & test the gateway. node --test runs the whole suite — policy, envelope
+# roundtrip (ADR-0002 tamper profile), the tsp-mcp tools, the e2e mediation
+# path, AND the ADR-0010 license suite: verify_license() against the vendored
+# spec-pinned license-v1 vectors + the 402 unlicensed_platform gate. Zero deps.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & test (zero-dep, Node 20)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run test suite
+        run: node --test test/*.test.mjs
