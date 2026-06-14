@@ -11,7 +11,7 @@
     "test": "node --test test/*.test.mjs",
     "demo": "node demo/run-demo.mjs"
   },
-  "license": "Apache-2.0",
+  "license": "SEE LICENSE IN LICENSE.md",
   "engines": {
     "node": ">=20"
   }
